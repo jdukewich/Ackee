@@ -1,6 +1,5 @@
 'use strict'
 
-const events = require('../constants/events')
 const dynamo = require('dynamodb')
 const Joi = require('joi')
 

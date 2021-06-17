@@ -105,14 +105,14 @@ Record.aggregate = async (aggregation) => {
 					}
 				}
 			} else if ('$sum' in group[field]) {
-					for (const res of results) {
-						res[field] = 0
-					}
-					for (const record of records) {
-						results[ids[record[groupByField]]][field]++
-					}
-                }
+				for (const res of results) {
+					res[field] = 0
+				}
+				for (const record of records) {
+					results[ids[record[groupByField]]][field]++
+				}
 			}
+		}
 	}
 	// Stage 3: Sorting
 	if (aggregation.length > 2) {
@@ -167,7 +167,7 @@ Record.updateMany = async (filter) => {
 						}
 					}
 				} else {
-                    for (const field in sel) {
+					for (const field in sel) {
 						records = records.filter((record) => record[field] === sel[field])
 					}
 				}
@@ -176,7 +176,7 @@ Record.updateMany = async (filter) => {
 	}
 
 	records.forEach((record) => Record.update(record))
-    // return records
+	// return records
 }
 
 Record.deleteMany = (domainId) => {
