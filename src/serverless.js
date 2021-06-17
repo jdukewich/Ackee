@@ -3,15 +3,8 @@
 const { ApolloServer } = require('apollo-server-lambda')
 
 const config = require('./utils/config')
-const connect = require('./utils/connect')
 const createApolloServer = require('./utils/createApolloServer')
 const { createServerlessContext } = require('./utils/createContext')
-
-if (config.dbUrl == null) {
-	throw new Error('MongoDB connection URI missing in environment')
-}
-
-connect(config.dbUrl)
 
 const apolloServer = createApolloServer(ApolloServer, {
 	context: createServerlessContext

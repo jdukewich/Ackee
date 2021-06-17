@@ -1,25 +1,45 @@
 'use strict'
+const dynamo = require('dynamodb')
+const Joi = require('joi')
 
-const mongoose = require('mongoose')
-const uuid = require('uuid').v4
+const Token = dynamo.define('Token', {
+	hashKey: 'id',
+	timestamps: true,
+	createdAt: 'created',
+	updatedAt: 'updated',
 
-const schema = new mongoose.Schema({
-	id: {
-		type: String,
-		required: true,
-		unique: true,
-		default: uuid
-	},
-	created: {
-		type: Date,
-		required: true,
-		default: Date.now
-	},
-	updated: {
-		type: Date,
-		required: true,
-		default: Date.now
+	schema: {
+		id: dynamo.types.uuid(),
+		created: Joi.date().required().default(Date.now),
+		updated: Joi.date().required().default(Date.now)
 	}
 })
 
-module.exports = mongoose.model('Token', schema)
+Token.findOne = (id) => {
+	return Token.get(id).then((model) => model === null ? model : model.attrs)
+}
+
+Token.findOneAndUpdate = (filter, doc) => {
+	const updateObj = {
+		...filter,
+		...doc.$set
+	}
+
+	Token.update(updateObj, function(err, data) {
+		if (err) {
+			// Handle err?
+		}
+		return data
+	})
+}
+
+Token.findOneAndDelete = (id) => {
+	return Token.destroy(id)
+}
+
+Token.create = async (createDict) => {
+	// Use this wrapper to extract attrs field
+	return Token.create(createDict).attrs
+}
+
+module.exports = Token

@@ -38,3 +38,10 @@ dist/*
 
 # Vercel
 .vercel
+
+# Terraform sensitive info
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.zip

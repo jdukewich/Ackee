@@ -1,29 +1,46 @@
 'use strict'
+const dynamo = require('dynamodb')
+const Joi = require('joi')
 
-const mongoose = require('mongoose')
-const uuid = require('uuid').v4
+const PermanentToken = dynamo.define('PermanentToken', {
+	hashKey: 'id',
+	timestamps: true,
+	createdAt: 'created',
+	updatedAt: 'updated',
 
-const schema = new mongoose.Schema({
-	id: {
-		type: String,
-		required: true,
-		unique: true,
-		default: uuid
-	},
-	title: {
-		type: String,
-		required: true
-	},
-	created: {
-		type: Date,
-		required: true,
-		default: Date.now
-	},
-	updated: {
-		type: Date,
-		required: true,
-		default: Date.now
+	schema: {
+		id: dynamo.types.uuid(),
+		title: Joi.string().required(),
+		created: Joi.date().required().default(Date.now),
+		updated: Joi.date().required().default(Date.now)
 	}
 })
 
-module.exports = mongoose.model('PermanentToken', schema)
+PermanentToken.find = async () => {
+	const tokens = await PermanentToken.scan().exec().promise()
+	return tokens[0].Items.map((item) => item.attrs)
+}
+
+PermanentToken.findOne = (id) => {
+	return PermanentToken.get(id).then((model) => model === null ? model : model.attrs)
+}
+
+PermanentToken.findOneAndUpdate = (filter, doc) => {
+	const updateObj = {
+		...filter,
+		...doc.$set
+	}
+
+	PermanentToken.update(updateObj, function(err, data) {
+		if (err) {
+			// Handle err?
+		}
+		return data
+	})
+}
+
+PermanentToken.findOneAndDelete = (id) => {
+	PermanentToken.destroy(id)
+}
+
+module.exports = PermanentToken

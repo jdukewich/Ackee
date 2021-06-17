@@ -6,12 +6,7 @@ const fetch = require('node-fetch')
 
 const signale = require('./utils/signale')
 const config = require('./utils/config')
-const checkMongoDB = require('./utils/connect')
 
-if (config.dbUrl == null) {
-	signale.fatal('MongoDB connection URI missing in environment')
-	process.exit(1)
-}
 
 const checkServer = async (url) => {
 	const res = await fetch(url)
@@ -32,7 +27,6 @@ const checkApi = async (url) => {
 const exit = (healthy) => process.exit(healthy === true ? 0 : 1)
 
 const check = () => Promise.all([
-	checkMongoDB(config.dbUrl),
 	checkServer(`http://localhost:${ config.port }`),
 	checkApi(`http://localhost:${ config.port }/.well-known/apollo/server-health`)
 ])

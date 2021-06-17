@@ -1,21 +1,28 @@
 version: "2"
 services:
   ackee:
-    image: electerious/ackee
+    # image: electerious/ackee
+    build: .
     container_name: ackee
     restart: always
     ports:
       - "3000:3000"
     environment:
-      - WAIT_HOSTS=mongo:27017
-      - ACKEE_MONGODB=mongodb://mongo:27017/ackee
+      - AWS_DEFAULT_REGION=us-east-2
     env_file:
       - .env
-    depends_on:
-      - mongo
-  mongo:
-    image: mongo
-    container_name: mongo
-    restart: always
     volumes:
-      - ./data:/data/db
+      - .:/srv/app:rw
+  ddb:
+    image: amazon/dynamodb-local:latest
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath .
+    container_name: ddb
+    ports:
+      - "8000:8000"
+  nginx:
+    restart: always
+    image: nginx:latest
+    ports:
+      - 8080:80
+    volumes:
+      - ./nginx/index.html:/usr/share/nginx/html/index.html
