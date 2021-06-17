@@ -30,7 +30,7 @@ const add = async (data) => {
 	}
 
 	return enhance(
-		await Record.create({
+		(await Record.create({
 			clientId: data.clientId,
 			domainId: data.domainId,
 			siteLocation: data.siteLocation,
@@ -48,7 +48,7 @@ const add = async (data) => {
 			browserVersion: data.browserVersion,
 			browserWidth: data.browserWidth,
 			browserHeight: data.browserHeight
-		})
+		})).attrs
 	)
 
 }

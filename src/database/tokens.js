@@ -15,7 +15,7 @@ const add = async () => {
 	}
 
 	return enhance(
-		await Token.create({})
+		(await Token.create({})).attrs
 	)
 
 }

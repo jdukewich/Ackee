@@ -37,9 +37,4 @@ Token.findOneAndDelete = (id) => {
 	return Token.destroy(id)
 }
 
-Token.create = async (createDict) => {
-	// Use this wrapper to extract attrs field
-	return Token.create(createDict).attrs
-}
-
 module.exports = Token

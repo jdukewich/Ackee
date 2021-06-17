@@ -191,9 +191,4 @@ Record.deleteMany = (domainId) => {
 	}
 }
 
-Record.create = async (createDict) => {
-	// Use this wrapper to extract attrs field
-	return Record.create(createDict).attrs
-}
-
 module.exports = Record
