@@ -65,7 +65,7 @@ Record.aggregate = async (aggregation) => {
 									results = results.filter((record) => record[field] && (item[field][expr] !== record[field]))
 								} else {
 									// No support for this expression yet!
-									console.error(`ERROR: No support for ${expr} expression within $or matching`)
+									console.error(`ERROR: No support for ${ expr } expression within $or matching`)
 								}
 							}
 						}
@@ -86,16 +86,14 @@ Record.aggregate = async (aggregation) => {
 							results = results.filter((record) => new Date(record[property]) < new Date(match[property][expr]))
 						} else {
 							// No support for this expression yet!
-							console.error(`ERROR: No support for ${expr} expression within field matching`)
+							console.error(`ERROR: No support for ${ expr } expression within field matching`)
 						}
 					}
 				}
 			}
-		}
-
-		else if ('$group' in task) {
+		} else if ('$group' in task) {
 			const group = task['$group']
-			let newResults = []
+			const newResults = []
 			for (const expr in group) {
 				const fields = Object.keys(group['_id']) // All the group by fields
 				if (expr === '_id') {
@@ -148,7 +146,7 @@ Record.aggregate = async (aggregation) => {
 								const month = (new Date(record['created'])).getMonth() + 1
 								const year = (new Date(record['created'])).getFullYear()
 								// Find result with fields matching this record and increment count
-								let res = newResults.findIndex((element) => {
+								const res = newResults.findIndex((element) => {
 									for (const field of fields) {
 										if (field === 'day') {
 											if (element['_id'][field] !== day) {
@@ -175,7 +173,7 @@ Record.aggregate = async (aggregation) => {
 								}
 							}
 						} else if (countField === '$avg') {
-							for (let result of newResults) {
+							for (const result of newResults) {
 								const matchRecords = results.filter((element) => {
 									const day = (new Date(element['created'])).getDate()
 									const month = (new Date(element['created'])).getMonth() + 1
@@ -206,20 +204,18 @@ Record.aggregate = async (aggregation) => {
 								result['count'] = avg
 							}
 						} else {
-							console.error(`ERROR: No support for ${countField} expression within $group -> count`)
+							console.error(`ERROR: No support for ${ countField } expression within $group -> count`)
 						}
 					}
 				} else {
 					// No support for this expression yet!
-					console.error(`ERROR: No support for ${expr} expression within $group`)
+					console.error(`ERROR: No support for ${ expr } expression within $group`)
 				}
 			}
 			results = newResults
-		}
-
-		else if ('$project' in task) {
+		} else if ('$project' in task) {
 			const project = task['$project']
-			for (let record of results) {
+			for (const record of results) {
 				for (const field in project) {
 					if (field === 'duration') {
 						for (const step in project[field]) {
@@ -231,39 +227,31 @@ Record.aggregate = async (aggregation) => {
 										record['duration'] = 7500
 									}
 								} else {
-									console.error(`ERROR: No support for ${project[field][step]['if']} within $project -> ${field} -> $cond`)
+									console.error(`ERROR: No support for ${ project[field][step]['if'] } within $project -> ${ field } -> $cond`)
 								}
 							} else {
-								console.error(`ERROR: No support for ${step} within $project -> ${field}`)
+								console.error(`ERROR: No support for ${ step } within $project -> ${ field }`)
 							}
 						}
 					} else if (field !== 'created') {
-						console.error(`ERROR: No support for ${field} within $project`)
+						console.error(`ERROR: No support for ${ field } within $project`)
 					}
 				}
 			}
-		}
-
-		else if ('$sort' in task) {
+		} else if ('$sort' in task) {
 			const sort = task['$sort']
 			for (const field in sort) {
 				results.sort((a, b) => {
 					return sort[field] * (a[field] - b[field])
 				})
 			}
-		}
-
-		else if ('$limit' in task) {
+		} else if ('$limit' in task) {
 			if (results.length > task['$limit']) {
 				results = results.slice(0, task['$limit'])
 			}
-		}
-
-		else if ('$count' in task) {
+		} else if ('$count' in task) {
 			return [{ count: results.length }]
-		}
-
-		else {
+		} else {
 			// Uh-oh, I don't support this yet!
 		}
 	}
