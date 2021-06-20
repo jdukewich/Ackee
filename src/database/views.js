@@ -19,7 +19,7 @@ const get = async (ids, type, interval, limit, dateDetails) => {
 	})()
 
 	const enhance = (entries) => {
-
+		// console.log('Views agg: ' + JSON.stringify(entries))
 		const matchDay = [ intervals.INTERVALS_DAILY ].includes(interval)
 		const matchMonth = [ intervals.INTERVALS_DAILY, intervals.INTERVALS_MONTHLY ].includes(interval)
 		const matchYear = [ intervals.INTERVALS_DAILY, intervals.INTERVALS_MONTHLY, intervals.INTERVALS_YEARLY ].includes(interval)

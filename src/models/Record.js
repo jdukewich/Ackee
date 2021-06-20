@@ -49,93 +49,224 @@ const Record = dynamo.define('Record', {
 
 Record.aggregate = async (aggregation) => {
 	// Might be slightly hard-coded, I'm not too familiar with MongoDB aggregations
-	// $match, $group, $sort, $limit stages
-	let records = await Record.scan().loadAll().exec().promise().then((resp) => {return resp[0].Items.map((item) => item.attrs)})
-	let results = []
-	const ids = []
-	let groupByField
-	// Stage 1: Matching
-	const match = aggregation[0]['$match']
-	if (match !== null) {
-		for (const prop in match) {
-			if (prop === '$or') {
-				// Array like [ { source: { '$ne': null } }, { siteReferrer: { '$ne': null } } ]
-				for (const item of match[prop]) {
-					for (const field in item) { // Field will be like siteReferrer
-						for (const expr in item[field]) {
-							if (expr === '$ne') {
-								records = records.filter((record) => record[field] && (item[field][expr] !== record[field]))
+	// console.log(JSON.stringify(aggregation))
+	let results = await Record.scan().loadAll().exec().promise().then((resp) => {return resp[0].Items.map((item) => item.attrs)})
+	for (const task of aggregation) {
+		if ('$match' in task) {
+			// A match contains a dictionary of properties to match on or an OR expression
+			const match = task['$match']
+			for (const property in match) {
+				if (property === '$or') {
+					// Array like [ { source: { '$ne': null } }, { siteReferrer: { '$ne': null } } ]
+					for (const item of match[property]) {
+						for (const field in item) { // Field will be like siteReferrer
+							for (const expr in item[field]) {
+								if (expr === '$ne') {
+									results = results.filter((record) => record[field] && (item[field][expr] !== record[field]))
+								} else {
+									// No support for this expression yet!
+									console.error(`ERROR: No support for ${expr} expression within $or matching`)
+								}
 							}
 						}
 					}
-				}
-			}
-			// Support for $in, $ne, $gte so far
-			for (const filter in match[prop]) {
-				if (filter === '$in') {
-					records = records.filter((record) => match[prop][filter].indexOf(record[prop]) > -1)
-				}
-
-				if (filter === '$ne') {
-					records = records.filter((record) => record[prop] && (match[prop][filter] !== record[prop]))
-				}
-
-				if (filter === '$gte') {
-					// Hardcoded for Date?
-					records = records.filter((record) => new Date(record[prop]) >= new Date(match[prop][filter]))
-				}
-			}
-		}
-	}
-	// Stage 2: Grouping
-	const group = aggregation[1]['$group']
-	if (group !== null) {
-		for (const field in group) {
-			if (field === '_id') {
-				for (const expr in group[field]) {
-					// Group by this property
-					groupByField = expr
-					for (const record of records) {
-						if (!(record[expr] in ids)) {
-							ids[record[expr]] = results.length
-							results.push({
-								_id: { [expr]: record[expr] }
-							})
+				} else {
+					// Not the $or property, must be a field name
+					// Can have multiple matching expressions like $gte, $ne, $in
+					for (const expr in match[property]) {
+						if (expr === '$in') {
+							results = results.filter((record) => match[property][expr].indexOf(record[property]) > -1)
+						} else if (expr === '$exists') {
+							results = results.filter((record) => record[property])
+						} else if (expr === '$ne') {
+							results = results.filter((record) => record[property] && (match[property][expr] !== record[property]))
+						} else if (expr === '$gte') {
+							results = results.filter((record) => new Date(record[property]) >= new Date(match[property][expr]))
+						} else if (expr === '$lt') {
+							results = results.filter((record) => new Date(record[property]) < new Date(match[property][expr]))
+						} else {
+							// No support for this expression yet!
+							console.error(`ERROR: No support for ${expr} expression within field matching`)
 						}
 					}
 				}
-			} else if ('$sum' in group[field]) {
-				for (const res of results) {
-					res[field] = 0
+			}
+		}
+
+		else if ('$group' in task) {
+			const group = task['$group']
+			let newResults = []
+			for (const expr in group) {
+				const fields = Object.keys(group['_id']) // All the group by fields
+				if (expr === '_id') {
+					for (const record of results) {
+						const day = (new Date(record['created'])).getDate()
+						const month = (new Date(record['created'])).getMonth() + 1
+						const year = (new Date(record['created'])).getFullYear()
+						// Check if another record with these values was already found
+						if (newResults.filter((item) => {
+							for (const field of fields) {
+								if (field === 'day') {
+									if (item['_id'][field] !== day) {
+										return false
+									}
+								} else if (field === 'month') {
+									if (item['_id'][field] !== month) {
+										return false
+									}
+								} else if (field === 'year') {
+									if (item['_id'][field] !== year) {
+										return false
+									}
+								} else if (item['_id'][field] !== record[field]) {
+									return false
+								}
+							}
+							return true
+						}).length === 0) {
+							newResults.push({
+								_id: {}
+							})
+							for (const field of fields) {
+								if (field === 'day') {
+									newResults[newResults.length - 1]['_id']['day'] = day
+								} else if (field === 'month') {
+									newResults[newResults.length - 1]['_id']['month'] = month
+								} else if (field === 'year') {
+									newResults[newResults.length - 1]['_id']['year'] = year
+								} else {
+									newResults[newResults.length - 1]['_id'][field] = record[field]
+								}
+							}
+						}
+					}
+				} else if (expr === 'count') {
+					for (const countField in group[expr]) {
+						if (countField === '$sum') {
+							for (const record of results) {
+								const day = (new Date(record['created'])).getDate()
+								const month = (new Date(record['created'])).getMonth() + 1
+								const year = (new Date(record['created'])).getFullYear()
+								// Find result with fields matching this record and increment count
+								let res = newResults.findIndex((element) => {
+									for (const field of fields) {
+										if (field === 'day') {
+											if (element['_id'][field] !== day) {
+												return false
+											}
+										} else if (field === 'month') {
+											if (element['_id'][field] !== month) {
+												return false
+											}
+										} else if (field === 'year') {
+											if (element['_id'][field] !== year) {
+												return false
+											}
+										} else if (element['_id'][field] !== record[field]) {
+											return false
+										}
+									}
+									return true
+								})
+								if ('count' in newResults[res]) {
+									newResults[res]['count']++
+								} else {
+									newResults[res]['count'] = 1
+								}
+							}
+						} else if (countField === '$avg') {
+							for (let result of newResults) {
+								const matchRecords = results.filter((element) => {
+									const day = (new Date(element['created'])).getDate()
+									const month = (new Date(element['created'])).getMonth() + 1
+									const year = (new Date(element['created'])).getFullYear()
+									for (const field of fields) {
+										if (field === 'day') {
+											if (result['_id'][field] !== day) {
+												return false
+											}
+										} else if (field === 'month') {
+											if (result['_id'][field] !== month) {
+												return false
+											}
+										} else if (field === 'year') {
+											if (result['_id'][field] !== year) {
+												return false
+											}
+										} else if (result['_id'][field] !== element[field]) {
+											return false
+										}
+									}
+									return true
+								})
+
+								// Get the average duration, no support for other fields yet
+								let avg = matchRecords.reduce((accum, current) => accum + current['duration'], 0)
+								avg = avg / matchRecords.length
+								result['count'] = avg
+							}
+						} else {
+							console.error(`ERROR: No support for ${countField} expression within $group -> count`)
+						}
+					}
+				} else {
+					// No support for this expression yet!
+					console.error(`ERROR: No support for ${expr} expression within $group`)
 				}
-				for (const record of records) {
-					results[ids[record[groupByField]]][field]++
+			}
+			results = newResults
+		}
+
+		else if ('$project' in task) {
+			const project = task['$project']
+			for (let record of results) {
+				for (const field in project) {
+					if (field === 'duration') {
+						for (const step in project[field]) {
+							if (step === '$subtract') {
+								record['duration'] = new Date(record['updated']) - new Date(record['created'])
+							} else if (step === '$cond') {
+								if ('$lt' in project[field][step]['if']) {
+									if (record['duration'] < project[field][step]['if']['$lt'][1]) {
+										record['duration'] = 7500
+									}
+								} else {
+									console.error(`ERROR: No support for ${project[field][step]['if']} within $project -> ${field} -> $cond`)
+								}
+							} else {
+								console.error(`ERROR: No support for ${step} within $project -> ${field}`)
+							}
+						}
+					} else if (field !== 'created') {
+						console.error(`ERROR: No support for ${field} within $project`)
+					}
 				}
 			}
 		}
-	}
-	// Stage 3: Sorting
-	if (aggregation.length > 2) {
-		const sort = aggregation[2]['$sort']
-		if (sort !== null) {
+
+		else if ('$sort' in task) {
+			const sort = task['$sort']
 			for (const field in sort) {
 				results.sort((a, b) => {
 					return sort[field] * (a[field] - b[field])
 				})
 			}
 		}
-	}
 
-	// Stage 4: Limiting
-	if (aggregation.length > 3) {
-		const limit = aggregation[3]['$limit']
-		if (limit !== null) {
-			if (results.length > limit) {
-				results = results.slice(0, limit)
+		else if ('$limit' in task) {
+			if (results.length > task['$limit']) {
+				results = results.slice(0, task['$limit'])
 			}
 		}
-	}
 
+		else if ('$count' in task) {
+			return [{ count: results.length }]
+		}
+
+		else {
+			// Uh-oh, I don't support this yet!
+		}
+	}
 	return results
 }
 
